@@ -1,6 +1,12 @@
 \# PriceFlow — Dynamic Pricing Engine
 
+## 🚀 Live Demo
 
+### 🌐 Live Application
+[Open PriceFlow Live App]:  https://priceflow-ienxubhguinhlk7iylrvka.streamlit.app/
+
+### 🎥 Live Demo Video
+https://drive.google.com/file/d/1L2OPPIC_yLT7m5ZefEhNRXriWkiftEHG/view?usp=sharing
 
 \## 1. Project Overview
 
