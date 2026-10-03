@@ -1,5 +1,4 @@
 ﻿import streamlit as st
-import requests
 
 # ============================================================
 # PAGE CONFIGURATION
@@ -427,7 +426,7 @@ DEFAULT_INVENTORY = 117.0
 DEFAULT_CURRENT_PRICE = 80.16
 DEFAULT_COMPETITOR_PRICE = 85.00
 
-API_URL = "http://127.0.0.1:8000/recommend-price"
+
 
 
 # ============================================================
@@ -603,253 +602,222 @@ calculate = st.button(
 
 
 # ============================================================
-# API REQUEST
+# PRICE CALCULATION
 # ============================================================
 
 if calculate:
 
-    payload = {
-        "product_id": product_id,
-        "demand": demand,
-        "inventory": inventory,
-        "current_price": current_price,
-        "competitor_price": competitor_price
-    }
+    # ========================================================
+    # MARKET-AWARE PRICING LOGIC
+    # ========================================================
 
-    try:
+    recommended_price = current_price
 
-        response = requests.post(
-            API_URL,
-            json=payload,
-            timeout=10
+    market_status = "Balanced Market"
+
+    pricing_insight = (
+        "Market conditions are relatively balanced. "
+        "The recommended price stays close to the current price."
+    )
+
+    # High demand + limited inventory
+    if demand > 150 and inventory < 150:
+
+        recommended_price = current_price * 1.10
+
+        market_status = "High Demand / Limited Inventory"
+
+        pricing_insight = (
+            "Demand is high while inventory is limited. "
+            "The engine increased the price to capture stronger demand."
         )
 
-        # ====================================================
-        # SUCCESS
-        # ====================================================
+    # Low demand + high inventory
+    elif demand < 80 and inventory > 150:
 
-        if response.status_code == 200:
+        recommended_price = current_price * 0.90
 
-            data = response.json()
+        market_status = "Low Demand / High Inventory"
 
-            recommended_price = float(
-                data["recommended_price"]
-            )
-
-            market_status = data.get(
-                "market_status",
-                "Balanced Market"
-            )
-
-            pricing_insight = data.get(
-                "pricing_insight",
-                "Market conditions are relatively balanced."
-            )
-
-            # =================================================
-            # RECOMMENDED PRICE
-            # =================================================
-
-            st.html(
-                """
-                <div class="section-heading">
-                    Pricing recommendation
-                </div>
-                """,
-            )
-
-            st.html(
-                f"""
-                <div class="recommendation-card">
-
-                    <div class="recommendation-label">
-                        RECOMMENDED SELLING PRICE
-                    </div>
-
-                    <div class="recommendation-price">
-                        &#8377;{recommended_price:.2f}
-                    </div>
-
-                    <div class="recommendation-current">
-                        Current price: &#8377;{current_price:.2f}
-                    </div>
-
-                </div>
-                """,
-            )
-
-
-            # =================================================
-            # MARKET SNAPSHOT
-            # =================================================
-
-            st.html(
-                """
-                <div class="section-heading">
-                    Market snapshot
-                </div>
-                """,
-            )
-
-            st.html(
-                f"""
-                <div class="snapshot-grid">
-
-                    <div class="snapshot-card">
-
-                        <div class="snapshot-label">
-                            Current price
-                        </div>
-
-                        <div class="snapshot-value">
-                            &#8377;{current_price:.2f}
-                        </div>
-
-                    </div>
-
-
-                    <div class="snapshot-card">
-
-                        <div class="snapshot-label">
-                            Competitor
-                        </div>
-
-                        <div class="snapshot-value">
-                            &#8377;{competitor_price:.2f}
-                        </div>
-
-                    </div>
-
-
-                    <div class="snapshot-card">
-
-                        <div class="snapshot-label">
-                            Demand
-                        </div>
-
-                        <div class="snapshot-value">
-                            {int(demand)}
-                        </div>
-
-                    </div>
-
-
-                    <div class="snapshot-card">
-
-                        <div class="snapshot-label">
-                            Inventory
-                        </div>
-
-                        <div class="snapshot-value">
-                            {int(inventory)}
-                        </div>
-
-                    </div>
-
-                </div>
-                """,
-            )
-
-
-            # =================================================
-            # PRICING INSIGHT
-            # =================================================
-
-            st.html(
-                f"""
-                <div class="insight-card">
-
-                    <div class="insight-title">
-                        Pricing insight
-                    </div>
-
-                    <div class="insight-status">
-                        {market_status}
-                    </div>
-
-                    <div class="insight-text">
-                        {pricing_insight}
-                    </div>
-
-                </div>
-                """,
-            )
-
-
-            # =================================================
-            # REDIS STATUS
-            # =================================================
-
-            st.html(
-                """
-                <div class="redis-card">
-
-                    <span class="redis-success">
-                        &#10003; Price stored successfully in Redis
-                    </span>
-
-                </div>
-                """,
-            )
-
-
-        # ====================================================
-        # API ERROR
-        # ====================================================
-
-        else:
-
-            st.error(
-                f"PriceFlow API returned error "
-                f"{response.status_code}."
-            )
-
-
-    # ========================================================
-    # FASTAPI NOT RUNNING
-    # ========================================================
-
-    except requests.exceptions.ConnectionError:
-
-        st.error(
-            "Cannot connect to PriceFlow API. "
-            "Please make sure FastAPI is running on port 8000."
+        pricing_insight = (
+            "Demand is relatively low and inventory is high. "
+            "The engine reduced the price to encourage sales."
         )
 
-
     # ========================================================
-    # TIMEOUT
-    # ========================================================
-
-    except requests.exceptions.Timeout:
-
-        st.error(
-            "The PriceFlow API took too long to respond."
-        )
-
-
-    # ========================================================
-    # OTHER ERROR
+    # COMPETITOR PRICE LIMIT
     # ========================================================
 
-    except Exception as error:
+    lower_limit = competitor_price * 0.90
+    upper_limit = competitor_price * 1.10
 
-        st.error(
-            f"Something went wrong: {error}"
-        )
+    recommended_price = max(
+        lower_limit,
+        min(recommended_price, upper_limit)
+    )
+
+    recommended_price = round(
+        recommended_price,
+        2
+    )
 
 
-# ============================================================
+    # ========================================================
+    # RECOMMENDED PRICE
+    # ========================================================
+
+    st.html(
+        """
+        <div class="section-heading">
+            Pricing recommendation
+        </div>
+        """,
+    )
+
+    st.html(
+        f"""
+        <div class="recommendation-card">
+
+            <div class="recommendation-label">
+                RECOMMENDED SELLING PRICE
+            </div>
+
+            <div class="recommendation-price">
+                &#8377;{recommended_price:.2f}
+            </div>
+
+            <div class="recommendation-current">
+                Current price: &#8377;{current_price:.2f}
+            </div>
+
+        </div>
+        """,
+    )
+
+
+    # ========================================================
+    # MARKET SNAPSHOT
+    # ========================================================
+
+    st.html(
+        """
+        <div class="section-heading">
+            Market snapshot
+        </div>
+        """,
+    )
+
+    st.html(
+        f"""
+        <div class="snapshot-grid">
+
+            <div class="snapshot-card">
+
+                <div class="snapshot-label">
+                    Current price
+                </div>
+
+                <div class="snapshot-value">
+                    &#8377;{current_price:.2f}
+                </div>
+
+            </div>
+
+
+            <div class="snapshot-card">
+
+                <div class="snapshot-label">
+                    Competitor
+                </div>
+
+                <div class="snapshot-value">
+                    &#8377;{competitor_price:.2f}
+                </div>
+
+            </div>
+
+
+            <div class="snapshot-card">
+
+                <div class="snapshot-label">
+                    Demand
+                </div>
+
+                <div class="snapshot-value">
+                    {int(demand)}
+                </div>
+
+            </div>
+
+
+            <div class="snapshot-card">
+
+                <div class="snapshot-label">
+                    Inventory
+                </div>
+
+                <div class="snapshot-value">
+                    {int(inventory)}
+                </div>
+
+            </div>
+
+        </div>
+        """,
+    )
+
+
+    # ========================================================
+    # PRICING INSIGHT
+    # ========================================================
+
+    st.html(
+        f"""
+        <div class="insight-card">
+
+            <div class="insight-title">
+                Pricing insight
+            </div>
+
+            <div class="insight-status">
+                {market_status}
+            </div>
+
+            <div class="insight-text">
+                {pricing_insight}
+            </div>
+
+        </div>
+        """,
+    )
+
+
+    # ========================================================
+    # CLOUD STATUS
+    # ========================================================
+
+    st.html(
+        """
+        <div class="redis-card">
+
+            <span class="redis-success">
+                &#10003; Price recommendation generated successfully
+            </span>
+
+        </div>
+        """,
+    )
+
+
+# ============================================================# ============================================================
 # FOOTER
 # ============================================================
 
 st.html(
     """
     <div class="priceflow-footer">
-        PriceFlow &#8226; Dynamic Pricing Engine &#8226; FastAPI + Redis
+        PriceFlow &#8226; Dynamic Pricing Engine &#8226; Cloud Demo
     </div>
     """
 )
-
-
 
