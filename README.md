@@ -1,3 +1,4 @@
+Dynamic pricing 
 ## 🚀 Live Demo
 
 ### 🌐 Live Application
